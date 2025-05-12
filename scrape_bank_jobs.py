@@ -7,42 +7,58 @@ def scrape_bank_jobs():
         response = requests.get(url, headers={'User-Agent': 'Mozilla/5.0'})
         response.raise_for_status()
     except requests.RequestException as e:
-        return [{"title": "Error", "link": "#", "date": "N/A", "error": f"Failed to fetch page: {e}"}]
+        return [{"title": "Error fetching page", "link": "#", "date": "N/A", "error": str(e)}]
 
     soup = BeautifulSoup(response.text, 'html.parser')
     notifications = []
-    
-    # Find the job listings table (adjust class name based on inspection)
-    job_listings = soup.find('table', class_='latest-notifications')
-    if not job_listings:
-        return [{"title": "No job listings found", "link": "#", "date": "N/A"}]
-    
-    # Get all rows
-    rows = job_listings.find_all('tr')
+
+    # Try multiple possible containers (adjust based on inspection)
+    job_container = (
+        soup.find('div', class_='latest-notifications') or
+        soup.find('div', class_='entry-content') or
+        soup.find('div', class_='job-list') or
+        soup.find('ul', class_='notifications')
+    )
+    if not job_container:
+        return [{"title": "No job container found", "link": "#", "date": "N/A"}]
+
+    # Find job items (try <li>, <div>, or <tr>)
+    job_items = (
+        job_container.find_all('li') or
+        job_container.find_all('div', class_='job-item') or
+        job_container.find_all('tr')
+    )
+    if not job_items:
+        return [{"title": "No job items found", "link": "#", "date": "N/A"}]
 
     bank_keywords = [
         'sbi', 'idbi', 'indian overseas', 'canara', 'punjab national',
         'bank of', 'ibps', 'rbi', 'nabard', 'clerk', 'po', 'probationary officer',
-        'specialist officer', 'lbo', 'jam'
+        'specialist officer', 'lbo', 'jam', 'hdfc', 'icici', 'bank'
     ]
 
-    for row in rows:
-        # Find the link in the row
-        link = row.find('a')
+    for item in job_items:
+        # Find the link
+        link = item.find('a')
         if not link:
             continue
         title = link.get_text(strip=True)
         href = link.get('href', '#')
-        
-        # Strict filtering: ensure title contains specific bank job keywords
+
+        # Filter for bank jobs
         if title and any(keyword.lower() in title.lower() for keyword in bank_keywords):
-            # Exclude generic or navigation links
-            if title.lower() in ['banks', 'jammu and kashmir'] or '#' in href:
+            # Exclude navigation or irrelevant links
+            if any(x in title.lower() for x in ['banks', 'jammu and kashmir', 'all india', 'other']) or '#' in href:
                 continue
-            # Extract date (adjust based on HTML)
-            date_elem = row.find('td', class_='date') or row.find('span', class_='date')
+            # Extract date (try multiple possibilities)
+            date_elem = (
+                item.find('span', class_='date') or
+                item.find('td', class_='date') or
+                item.find('div', class_='post-date') or
+                item.find_next_sibling('span', class_='date')
+            )
             date = date_elem.get_text(strip=True) if date_elem else "N/A"
-            
+
             notifications.append({
                 "title": title,
                 "link": href if href.startswith('http') else f"https://www.freejobalert.com{href}",
@@ -62,28 +78,32 @@ def generate_html(jobs):
         body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background-color: #f4f4f4; }
         h1 { text-align: center; color: #333; }
         .container { max-width: 800px; margin: 0 auto; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
-        .job { margin-bottom: 15px; padding: 10px; border-bottom: 1px solid #ddd; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #f2f2f2; }
         .job a { color: #007bff; text-decoration: none; font-weight: bold; }
         .job a:hover { text-decoration: underline; }
-        .job p { margin: 5px 0; color: #555; }
         .error { color: red; font-style: italic; }
     </style>
 </head>
 <body>
     <h1>Latest Bank Job Notifications</h1>
     <div class="container">
+        <table>
+            <tr><th>Job Title</th><th>Date</th></tr>
 """
     for job in jobs:
         html_content += f"""
-        <div class="job">
-            <a href="{job['link']}" target="_blank">{job['title']}</a>
-            <p>Date: {job['date']}</p>
+            <tr class="job">
+                <td><a href="{job['link']}" target="_blank">{job['title']}</a></td>
+                <td>{job['date']}</td>
+            </tr>
 """
         if 'error' in job:
-            html_content += f'<p class="error">{job["error"]}</p>'
-        html_content += "</div>"
+            html_content += f'<tr><td colspan="2" class="error">{job["error"]}</td></tr>'
 
     html_content += """
+        </table>
     </div>
 </body>
 </html>
