@@ -1,6 +1,5 @@
 import requests
 from bs4 import BeautifulSoup
-import re
 
 def scrape_bank_jobs():
     url = "https://www.freejobalert.com/latest-notifications/"
@@ -12,28 +11,43 @@ def scrape_bank_jobs():
 
     soup = BeautifulSoup(response.text, 'html.parser')
     notifications = []
-    # Adjust selector based on page structure (inspect the page)
-    job_listings = soup.find_all('div', class_='entry-content')  # Update if needed
+    
+    # Find the job listings table (adjust class name based on inspection)
+    job_listings = soup.find('table', class_='latest-notifications')
+    if not job_listings:
+        return [{"title": "No job listings found", "link": "#", "date": "N/A"}]
+    
+    # Get all rows
+    rows = job_listings.find_all('tr')
 
     bank_keywords = [
-        'bank', 'sbi', 'idbi', 'indian overseas', 'canara', 'punjab national',
+        'sbi', 'idbi', 'indian overseas', 'canara', 'punjab national',
         'bank of', 'ibps', 'rbi', 'nabard', 'clerk', 'po', 'probationary officer',
         'specialist officer', 'lbo', 'jam'
     ]
 
-    for listing in job_listings:
-        links = listing.find_all('a')
-        for link in links:
-            title = link.get_text(strip=True)
-            href = link.get('href', '#')
-            if title and any(keyword.lower() in title.lower() for keyword in bank_keywords):
-                date_elem = link.find_parent().find_next_sibling()  # Adjust as needed
-                date = date_elem.get_text(strip=True) if date_elem else "N/A"
-                notifications.append({
-                    "title": title,
-                    "link": href if href.startswith('http') else f"https://www.freejobalert.com{href}",
-                    "date": date
-                })
+    for row in rows:
+        # Find the link in the row
+        link = row.find('a')
+        if not link:
+            continue
+        title = link.get_text(strip=True)
+        href = link.get('href', '#')
+        
+        # Strict filtering: ensure title contains specific bank job keywords
+        if title and any(keyword.lower() in title.lower() for keyword in bank_keywords):
+            # Exclude generic or navigation links
+            if title.lower() in ['banks', 'jammu and kashmir'] or '#' in href:
+                continue
+            # Extract date (adjust based on HTML)
+            date_elem = row.find('td', class_='date') or row.find('span', class_='date')
+            date = date_elem.get_text(strip=True) if date_elem else "N/A"
+            
+            notifications.append({
+                "title": title,
+                "link": href if href.startswith('http') else f"https://www.freejobalert.com{href}",
+                "date": date
+            })
 
     return notifications if notifications else [{"title": "No bank jobs found", "link": "#", "date": "N/A"}]
 
