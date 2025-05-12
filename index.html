@@ -8,21 +8,26 @@
         body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background-color: #f4f4f4; }
         h1 { text-align: center; color: #333; }
         .container { max-width: 800px; margin: 0 auto; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
-        .job { margin-bottom: 15px; padding: 10px; border-bottom: 1px solid #ddd; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #f2f2f2; }
         .job a { color: #007bff; text-decoration: none; font-weight: bold; }
         .job a:hover { text-decoration: underline; }
-        .job p { margin: 5px 0; color: #555; }
         .error { color: red; font-style: italic; }
     </style>
 </head>
 <body>
     <h1>Latest Bank Job Notifications</h1>
     <div class="container">
+        <table>
+            <tr><th>Job Title</th><th>Date</th></tr>
 
-        <div class="job">
-            <a href="#" target="_blank">No job listings found</a>
-            <p>Date: N/A</p>
-</div>
+            <tr class="job">
+                <td><a href="#" target="_blank">No bank jobs found</a></td>
+                <td>N/A</td>
+            </tr>
+
+        </table>
     </div>
 </body>
 </html>
